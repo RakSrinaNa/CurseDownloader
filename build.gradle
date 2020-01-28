@@ -76,6 +76,7 @@ compileJava {
     doFirst {
         options.compilerArgs = [
                 '--module-path', classpath.asPath,
+                '-Xlint:deprecation'
         ]
         classpath = files()
     }
