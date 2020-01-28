@@ -3,7 +3,9 @@ package fr.raksrinana.cursedownloader;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.ParameterException;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.core.JsonFactoryBuilder;
 import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.json.JsonReadFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.therandomlabs.curseapi.CurseAPI;
 import com.therandomlabs.curseapi.CurseException;
@@ -53,10 +55,11 @@ public class Main{
 	@NonNull
 	public static Optional<SidesMods> loadSettings(@NonNull final Path path){
 		if(path.toFile().exists()){
-			final var mapper = new ObjectMapper();
+			final var factoryBuilder = new JsonFactoryBuilder();
+			factoryBuilder.enable(JsonReadFeature.ALLOW_TRAILING_COMMA);
+			final var mapper = new ObjectMapper(factoryBuilder.build());
 			mapper.setVisibility(mapper.getSerializationConfig().getDefaultVisibilityChecker().withFieldVisibility(JsonAutoDetect.Visibility.ANY).withGetterVisibility(JsonAutoDetect.Visibility.NONE).withSetterVisibility(JsonAutoDetect.Visibility.NONE).withCreatorVisibility(JsonAutoDetect.Visibility.NONE));
 			mapper.enable(JsonParser.Feature.ALLOW_COMMENTS);
-			mapper.enable(JsonParser.Feature.ALLOW_TRAILING_COMMA);
 			final var objectReader = mapper.readerFor(SidesMods.class);
 			try(final var fis = new FileInputStream(path.toFile())){
 				return Optional.ofNullable(objectReader.readValue(fis));
