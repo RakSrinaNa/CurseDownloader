@@ -5,13 +5,12 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import java.util.StringJoiner;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @Getter
 @NoArgsConstructor
-public class ModFile{
+public class ModFile implements Comparable<ModFile>{
 	@JsonProperty("name")
 	private String name;
 	@JsonProperty("project")
@@ -21,6 +20,11 @@ public class ModFile{
 	
 	@Override
 	public String toString(){
-		return new StringJoiner(", ", ModFile.class.getSimpleName() + "[", "]").add("name=" + name).add("project=" + project).add("file=" + file).toString();
+		return getName() + '(' + getProject() + ')';
+	}
+	
+	@Override
+	public int compareTo(ModFile o){
+		return getName().compareTo(o.getName());
 	}
 }

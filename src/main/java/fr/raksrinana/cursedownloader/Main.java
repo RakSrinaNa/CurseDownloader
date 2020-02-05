@@ -73,7 +73,7 @@ public class Main{
 	
 	private static void processUpdates(Set<ModFile> modFiles, Path... outputs){
 		final var outputSet = Set.of(outputs);
-		modFiles.forEach(modFile -> {
+		modFiles.stream().sorted().forEach(modFile -> {
 			log.info("Processing {}", modFile);
 			getCurseFile(modFile).ifPresentOrElse(file -> outputSet.forEach(output -> downloadFileToFolder(output, file)), () -> log.warn("Mod not found {}", modFile));
 		});
@@ -98,7 +98,7 @@ public class Main{
 		}
 		try{
 			Files.walkFileTree(directory, new DeleteSameModFileWalker(file));
-			log.info("Downloading {} to {}", file, target);
+			log.info("Downloading {} to {}", file.displayName(), target);
 			file.download(target);
 		}
 		catch(Exception e){
