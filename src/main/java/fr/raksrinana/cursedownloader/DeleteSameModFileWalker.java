@@ -27,7 +27,7 @@ public class DeleteSameModFileWalker extends SimpleFileVisitor<Path>{
 			return FileVisitResult.SKIP_SUBTREE;
 		}
 		if(pattern.matcher(file.getFileName().toString()).matches()){
-			log.info("Deleting file {} to be replaced with {}", file, this.curseFile);
+			log.info("Deleting file {}", file);
 			Files.delete(file);
 		}
 		return FileVisitResult.CONTINUE;
