@@ -7,24 +7,32 @@ import com.fasterxml.jackson.core.JsonFactoryBuilder;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.json.JsonReadFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.therandomlabs.curseapi.CurseAPI;
 import com.therandomlabs.curseapi.CurseException;
 import com.therandomlabs.curseapi.file.CurseFile;
+import com.therandomlabs.curseapi.file.CurseFiles;
 import com.therandomlabs.curseapi.util.OkHttpUtils;
 import fr.raksrinana.cursedownloader.cli.CLIParameters;
+import fr.raksrinana.cursedownloader.model.Configuration;
 import fr.raksrinana.cursedownloader.model.ModFile;
-import fr.raksrinana.cursedownloader.model.SidesMods;
+import fr.raksrinana.cursedownloader.model.UpdateTags;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Optional;
-import java.util.Set;
+import java.text.MessageFormat;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class Main{
+	private static ObjectMapper mapper;
+	
 	public static void main(final String[] args){
 		final var parameters = new CLIParameters();
 		try{
@@ -35,6 +43,12 @@ public class Main{
 			e.usage();
 			return;
 		}
+		final var factoryBuilder = new JsonFactoryBuilder();
+		factoryBuilder.enable(JsonReadFeature.ALLOW_TRAILING_COMMA);
+		mapper = new ObjectMapper(factoryBuilder.build());
+		mapper.setVisibility(mapper.getSerializationConfig().getDefaultVisibilityChecker().withFieldVisibility(JsonAutoDetect.Visibility.ANY).withGetterVisibility(JsonAutoDetect.Visibility.NONE).withSetterVisibility(JsonAutoDetect.Visibility.NONE).withCreatorVisibility(JsonAutoDetect.Visibility.NONE));
+		mapper.enable(JsonParser.Feature.ALLOW_COMMENTS);
+		mapper.enable(SerializationFeature.INDENT_OUTPUT);
 		try{
 			Files.createDirectories(parameters.getServerPath());
 			Files.createDirectories(parameters.getClientPath());
@@ -43,32 +57,74 @@ public class Main{
 			log.error("Failed to create mods folders", e);
 			return;
 		}
-		loadSettings(parameters.getSettingsPath()).ifPresentOrElse(sidesMods -> {
-			processUpdates(sidesMods.getAll(), parameters.getClientPath(), parameters.getServerPath());
-			processUpdates(sidesMods.getClient(), parameters.getClientPath());
-			processUpdates(sidesMods.getServer(), parameters.getServerPath());
+		loadSettings(parameters.getSettingsPath()).ifPresentOrElse(configuration -> {
+			if(parameters.isUpdate()){
+				checkUpdates(configuration.getEverything(), configuration.getUpdateTags());
+			}
+			processUpdates(configuration.getAll(), parameters.getClientPath(), parameters.getServerPath());
+			processUpdates(configuration.getClient(), parameters.getClientPath());
+			processUpdates(configuration.getServer(), parameters.getServerPath());
+			saveSettings(parameters.getSettingsPath(), configuration);
 		}, () -> log.warn("Mod list couldn't be loaded"));
 		OkHttpUtils.getClient().connectionPool().evictAll();
 		OkHttpUtils.getClient().dispatcher().executorService().shutdown();
 	}
 	
 	@NonNull
-	public static Optional<SidesMods> loadSettings(@NonNull final Path path){
+	public static Optional<Configuration> loadSettings(@NonNull final Path path){
 		if(path.toFile().exists()){
-			final var factoryBuilder = new JsonFactoryBuilder();
-			factoryBuilder.enable(JsonReadFeature.ALLOW_TRAILING_COMMA);
-			final var mapper = new ObjectMapper(factoryBuilder.build());
-			mapper.setVisibility(mapper.getSerializationConfig().getDefaultVisibilityChecker().withFieldVisibility(JsonAutoDetect.Visibility.ANY).withGetterVisibility(JsonAutoDetect.Visibility.NONE).withSetterVisibility(JsonAutoDetect.Visibility.NONE).withCreatorVisibility(JsonAutoDetect.Visibility.NONE));
-			mapper.enable(JsonParser.Feature.ALLOW_COMMENTS);
-			final var objectReader = mapper.readerFor(SidesMods.class);
 			try(final var fis = new FileInputStream(path.toFile())){
-				return Optional.ofNullable(objectReader.readValue(fis));
+				return Optional.ofNullable(mapper.readValue(fis, Configuration.class));
 			}
 			catch(final IOException e){
 				log.error("Failed to read settings in {}", path, e);
 			}
 		}
 		return Optional.empty();
+	}
+	
+	private static void checkUpdates(Set<ModFile> mods, UpdateTags updateTags){
+		final var scanner = new Scanner(System.in);
+		final var fallbackDate = ZonedDateTime.of(1970, 1, 1, 0, 0, 0, 0, ZoneId.of("UTC"));
+		mods.forEach(mod -> {
+			final var currentFile = getCurseFile(mod);
+			final var baseDate = currentFile.map(CurseFile::uploadTime).orElse(fallbackDate);
+			getCurseProjectFiles(mod).ifPresent(files -> {
+				final var newerFiles = files.stream().filter(file -> file.uploadTime().isAfter(baseDate)).filter(file -> file.gameVersionStrings().containsAll(updateTags.getRequired())).filter(file -> file.gameVersionStrings().stream().noneMatch(tag -> updateTags.getExcluded().contains(tag))).collect(Collectors.toSet());
+				askSelection(newerFiles, currentFile.orElse(null), scanner).map(CurseFile::id).ifPresent(mod::setFile);
+			});
+		});
+	}
+	
+	private static void saveSettings(@NonNull Path path, @NonNull Configuration configuration){
+		try{
+			mapper.writeValue(path.toFile(), configuration);
+		}
+		catch(IOException e){
+			log.error("Failed to write settings to {}", path, e);
+		}
+	}
+	
+	@NonNull
+	private static Optional<CurseFiles<CurseFile>> getCurseProjectFiles(@NonNull ModFile modFile){
+		try{
+			return CurseAPI.files(modFile.getProject());
+		}
+		catch(CurseException e){
+			log.warn("Failed to get project files {}", modFile, e);
+		}
+		return Optional.empty();
+	}
+	
+	private static Optional<CurseFile> askSelection(Set<CurseFile> files, CurseFile currentFile, Scanner scanner){
+		if(files.isEmpty()){
+			return Optional.empty();
+		}
+		log.info("Current file is: {}", Optional.ofNullable(currentFile).map(Main::formatFile).orElse("Unknown"));
+		final var selection = files.stream().sorted(Comparator.comparing(CurseFile::uploadTime).reversed()).map(Main::formatFile).collect(Collectors.joining("\n"));
+		log.info("Please select your choice:\n" + selection);
+		final var response = scanner.nextInt();
+		return files.stream().filter(file -> Objects.equals(response, file.id())).findFirst();
 	}
 	
 	private static void processUpdates(Set<ModFile> modFiles, Path... outputs){
@@ -88,6 +144,10 @@ public class Main{
 			log.warn("Failed to get mod file {}", modFile, e);
 		}
 		return Optional.empty();
+	}
+	
+	private static String formatFile(CurseFile file){
+		return MessageFormat.format("{0,number,#} => {1} ({2} : {3}) {4}", file.id(), file.displayName(), file.releaseType().name(), file.nameOnDisk(), file.gameVersionStrings());
 	}
 	
 	private static void downloadFileToFolder(@NonNull Path directory, @NonNull CurseFile file){

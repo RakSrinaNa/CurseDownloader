@@ -14,10 +14,8 @@ import java.util.regex.Pattern;
 @Slf4j
 public class DeleteSameModFileWalker extends SimpleFileVisitor<Path>{
 	private final Pattern pattern;
-	private final CurseFile curseFile;
 	
 	public DeleteSameModFileWalker(@NonNull CurseFile file){
-		this.curseFile = file;
 		this.pattern = Pattern.compile(file.projectID() + "_\\d+_.+");
 	}
 	

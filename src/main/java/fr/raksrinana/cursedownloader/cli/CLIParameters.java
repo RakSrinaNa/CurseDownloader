@@ -27,6 +27,11 @@ public class CLIParameters{
 	}, description = "The path to the settings file", converter = PathConverter.class)
 	private Path settingsPath = Paths.get("mods.json5");
 	@Parameter(names = {
+			"-u",
+			"--update"
+	}, description = "Flag to check mod updates before downloading")
+	private boolean update = false;
+	@Parameter(names = {
 			"-h",
 			"--help"
 	}, help = true)
