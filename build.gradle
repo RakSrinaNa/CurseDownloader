@@ -80,6 +80,17 @@ java {
     modularity.inferModulePath.set(true)
 }
 
+compileJava {
+    inputs.property("moduleName", moduleName)
+    doFirst {
+        options.compilerArgs = [
+                '--module-path', classpath.asPath,
+                '-Xlint:deprecation'
+        ]
+        classpath = files()
+    }
+}
+
 shadowJar {
     baseName = project.name
     classifier = 'shaded'
