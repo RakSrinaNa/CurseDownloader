@@ -15,12 +15,12 @@ public class CLIParameters{
 			"-c",
 			"--client"
 	}, description = "The path to the client mods folder", converter = PathConverter.class)
-	private Path clientPath = Paths.get("client/mods");
+	private Path clientPath;
 	@Parameter(names = {
 			"-s",
 			"--server"
 	}, description = "The path to the server mods folder", converter = PathConverter.class)
-	private Path serverPath = Paths.get("server/mods");
+	private Path serverPath;
 	@Parameter(names = {
 			"-m",
 			"--mods"

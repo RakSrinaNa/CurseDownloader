@@ -128,7 +128,9 @@ public class Main{
 	}
 	
 	private static void processUpdates(Set<ModFile> modFiles, Path... outputs){
-		final var outputSet = Set.of(outputs);
+		final var outputSet = Arrays.stream(outputs)
+				.filter(Objects::nonNull)
+				.collect(Collectors.toSet());
 		modFiles.stream().sorted().forEach(modFile -> {
 			log.info("Processing {}", modFile);
 			getCurseFile(modFile).ifPresentOrElse(file -> outputSet.forEach(output -> downloadFileToFolder(output, file)), () -> log.warn("Mod not found {}", modFile));
