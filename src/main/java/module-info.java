@@ -1,5 +1,5 @@
 open module fr.raksrinana.cursedownloader {
-	requires jcommander;
+	requires info.picocli;
 	requires static lombok;
 	requires org.slf4j;
 	requires ch.qos.logback.classic;

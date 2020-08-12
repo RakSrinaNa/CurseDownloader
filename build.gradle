@@ -46,7 +46,7 @@ dependencies {
     implementation("com.fasterxml.jackson.core:jackson-annotations:${project.jackson_version}")
     implementation("com.fasterxml.jackson.core:jackson-databind:${project.jackson_version}")
 
-    implementation("com.beust:jcommander:${project.jcommander_version}")
+    implementation("info.picocli:picocli:${project.picocli_version}")
 
     implementation("com.github.TheRandomLabs:CurseAPI:${project.curse_api_version}")
 }
@@ -64,11 +64,8 @@ repositories {
     }
 }
 
-import org.apache.tools.ant.filters.ReplaceTokens
-
 processResources {
-    from 'src/main/resources'
-    filter(ReplaceTokens, tokens: [project_version: project.version, project_name: project.name])
+    expand project.properties
 }
 
 application {
