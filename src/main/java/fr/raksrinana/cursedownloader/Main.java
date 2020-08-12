@@ -50,8 +50,12 @@ public class Main{
 		mapper.enable(JsonParser.Feature.ALLOW_COMMENTS);
 		mapper.enable(SerializationFeature.INDENT_OUTPUT);
 		try{
-			Files.createDirectories(parameters.getServerPath());
-			Files.createDirectories(parameters.getClientPath());
+			if(Objects.nonNull(parameters.getClientPath())){
+				Files.createDirectories(parameters.getClientPath());
+			}
+			if(Objects.nonNull(parameters.getServerPath())){
+				Files.createDirectories(parameters.getServerPath());
+			}
 		}
 		catch(IOException e){
 			log.error("Failed to create mods folders", e);
