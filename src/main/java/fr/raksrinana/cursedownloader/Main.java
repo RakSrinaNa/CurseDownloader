@@ -24,13 +24,13 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.MessageFormat;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
 public class Main{
+	private static final DateTimeFormatter DF = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 	private static ObjectMapper mapper;
 	
 	public static void main(final String[] args){
@@ -89,13 +89,17 @@ public class Main{
 	
 	private static void checkUpdates(Set<ModFile> mods, UpdateTags updateTags){
 		final var scanner = new Scanner(System.in);
-		final var fallbackDate = ZonedDateTime.of(1970, 1, 1, 0, 0, 0, 0, ZoneId.of("UTC"));
 		mods.forEach(mod -> {
-			final var currentFile = getCurseFile(mod);
-			final var baseDate = currentFile.map(CurseFile::uploadTime).orElse(fallbackDate);
-			getCurseProjectFiles(mod).ifPresent(files -> {
-				final var newerFiles = files.stream().filter(file -> file.uploadTime().isAfter(baseDate)).filter(file -> file.gameVersionStrings().containsAll(updateTags.getRequired())).filter(file -> file.gameVersionStrings().stream().noneMatch(tag -> updateTags.getExcluded().contains(tag))).collect(Collectors.toSet());
-				askSelection(newerFiles, currentFile.orElse(null), scanner).map(CurseFile::id).ifPresent(mod::setFile);
+			getCurseFile(mod).ifPresent(currentFile -> {
+				final var baseDate = currentFile.uploadTime();
+				getCurseProjectFiles(mod).ifPresent(files -> {
+					final var newerFiles = files.stream()
+							.filter(file -> file.uploadTime().isAfter(baseDate))
+							.filter(file -> file.gameVersionStrings().containsAll(updateTags.getRequired()))
+							.filter(file -> file.gameVersionStrings().stream().noneMatch(tag -> updateTags.getExcluded().contains(tag)))
+							.collect(Collectors.toSet());
+					askSelection(newerFiles, currentFile, scanner).map(CurseFile::id).ifPresent(mod::setFile);
+				});
 			});
 		});
 	}
@@ -110,12 +114,23 @@ public class Main{
 	}
 	
 	@NonNull
+	private static Optional<CurseFile> getCurseFile(@NonNull ModFile modFile){
+		try{
+			return CurseAPI.file(modFile.getProject(), modFile.getFile());
+		}
+		catch(CurseException e){
+			log.warn("Failed to get mod file {} => {}", modFile, e.getMessage());
+		}
+		return Optional.empty();
+	}
+	
+	@NonNull
 	private static Optional<CurseFiles<CurseFile>> getCurseProjectFiles(@NonNull ModFile modFile){
 		try{
 			return CurseAPI.files(modFile.getProject());
 		}
 		catch(CurseException e){
-			log.warn("Failed to get project files {}", modFile, e);
+			log.warn("Failed to get project files {} => {}", modFile, e.getMessage());
 		}
 		return Optional.empty();
 	}
@@ -125,10 +140,22 @@ public class Main{
 			return Optional.empty();
 		}
 		log.info("Current file is: {}", Optional.ofNullable(currentFile).map(Main::formatFile).orElse("Unknown"));
-		final var selection = files.stream().sorted(Comparator.comparing(CurseFile::uploadTime).reversed()).map(Main::formatFile).collect(Collectors.joining("\n"));
+		final var selection = files.stream().sorted(Comparator.comparing(CurseFile::uploadTime).reversed())
+				.map(Main::formatFile)
+				.collect(Collectors.joining("\n"));
 		log.info("Please select your choice:\n" + selection);
 		final var response = scanner.nextInt();
 		return files.stream().filter(file -> Objects.equals(response, file.id())).findFirst();
+	}
+	
+	private static String formatFile(CurseFile file){
+		return MessageFormat.format("{0,number,#} => {1} ({2} : {3}) {4} on {5}",
+				file.id(),
+				file.displayName(),
+				file.releaseType().name(),
+				file.nameOnDisk(),
+				file.gameVersionStrings(),
+				file.uploadTime().format(DF));
 	}
 	
 	private static void processUpdates(Set<ModFile> modFiles, Path... outputs){
@@ -137,23 +164,10 @@ public class Main{
 				.collect(Collectors.toSet());
 		modFiles.stream().sorted().forEach(modFile -> {
 			log.info("Processing {}", modFile);
-			getCurseFile(modFile).ifPresentOrElse(file -> outputSet.forEach(output -> downloadFileToFolder(output, file)), () -> log.warn("Mod not found {}", modFile));
+			getCurseFile(modFile)
+					.ifPresentOrElse(file -> outputSet.forEach(output -> downloadFileToFolder(output, file)),
+							() -> log.warn("Mod not found {}", modFile));
 		});
-	}
-	
-	@NonNull
-	private static Optional<CurseFile> getCurseFile(@NonNull ModFile modFile){
-		try{
-			return CurseAPI.file(modFile.getProject(), modFile.getFile());
-		}
-		catch(CurseException e){
-			log.warn("Failed to get mod file {}", modFile, e);
-		}
-		return Optional.empty();
-	}
-	
-	private static String formatFile(CurseFile file){
-		return MessageFormat.format("{0,number,#} => {1} ({2} : {3}) {4}", file.id(), file.displayName(), file.releaseType().name(), file.nameOnDisk(), file.gameVersionStrings());
 	}
 	
 	private static void downloadFileToFolder(@NonNull Path directory, @NonNull CurseFile file){
