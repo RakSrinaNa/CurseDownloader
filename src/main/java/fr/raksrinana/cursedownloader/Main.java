@@ -105,6 +105,7 @@ public class Main implements Callable<Void>{
 						.filter(file -> file.uploadTime().isAfter(baseDate))
 						.filter(file -> file.gameVersionStrings().containsAll(updateTags.getRequired()))
 						.filter(file -> file.gameVersionStrings().stream().noneMatch(tag -> updateTags.getExcluded().contains(tag)))
+						.limit(20)
 						.collect(Collectors.toSet());
 				askSelection(newerFiles, currentFile.orElse(null), scanner).map(CurseFile::id).ifPresent(mod::setFile);
 			});
