@@ -125,7 +125,7 @@ public class Main implements Callable<Void>{
 		try{
 			return CurseAPI.file(modFile.getProject(), modFile.getFile());
 		}
-		catch(CurseException e){
+		catch(CurseException | IllegalArgumentException e){
 			log.warn("Failed to get mod file {} => {}", modFile, e.getMessage());
 		}
 		return Optional.empty();
