@@ -63,16 +63,11 @@ dependencies {
 }
 
 repositories {
-    mavenCentral()
-    maven {
-        url = 'https://repo.maven.apache.org/maven2'
-    }
-    maven {
-        url = 'https://jcenter.bintray.com'
-    }
     maven {
         url = "https://jitpack.io"
     }
+    jcenter()
+    mavenCentral()
 }
 
 processResources {
@@ -106,6 +101,7 @@ shadowJar {
 
 tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
+    options.deprecation = true
 }
 
 tasks.withType(Wrapper) {
