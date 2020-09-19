@@ -53,7 +53,12 @@ public class Main implements Callable<Void>{
 		final var factoryBuilder = new JsonFactoryBuilder();
 		factoryBuilder.enable(JsonReadFeature.ALLOW_TRAILING_COMMA);
 		mapper = new ObjectMapper(factoryBuilder.build());
-		mapper.setVisibility(mapper.getSerializationConfig().getDefaultVisibilityChecker().withFieldVisibility(JsonAutoDetect.Visibility.ANY).withGetterVisibility(JsonAutoDetect.Visibility.NONE).withSetterVisibility(JsonAutoDetect.Visibility.NONE).withCreatorVisibility(JsonAutoDetect.Visibility.NONE));
+		mapper.setVisibility(mapper.getSerializationConfig()
+				.getDefaultVisibilityChecker()
+				.withFieldVisibility(JsonAutoDetect.Visibility.ANY)
+				.withGetterVisibility(JsonAutoDetect.Visibility.NONE)
+				.withSetterVisibility(JsonAutoDetect.Visibility.NONE)
+				.withCreatorVisibility(JsonAutoDetect.Visibility.NONE));
 		mapper.enable(JsonParser.Feature.ALLOW_COMMENTS);
 		mapper.enable(SerializationFeature.INDENT_OUTPUT);
 		try{
